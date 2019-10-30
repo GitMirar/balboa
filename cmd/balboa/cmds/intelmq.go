@@ -22,13 +22,22 @@ var intelMqCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(err)
 		}
+		intelMqFeedName, err := cmd.Flags().GetString("intelmq-feed-name")
+		if err != nil {
+			log.Fatal(err)
+		}
+		intelMqFeedProvider, err := cmd.Flags().GetString("intelmq-feed-provider")
+		if err != nil {
+			log.Fatal(err)
+		}
+
 		host, err := cmd.Flags().GetString("host")
 		if err != nil {
 			log.Fatal(err)
 		}
 		log.Printf("running IntelMQ relay backend and relaying events to %s", intelMqCollector)
 
-		db.Serve(host, db.NewIntelMqHandler(intelMqCollector))
+		db.Serve(host, db.NewIntelMqHandler(intelMqCollector, intelMqFeedName, intelMqFeedProvider))
 	},
 }
 
@@ -36,5 +45,7 @@ func init() {
 	rootCmd.AddCommand(intelMqCmd)
 
 	intelMqCmd.Flags().StringP("intelmq-tcp-collector", "s", "localhost:5123", "hostname and port of IntelMQ TCP collector")
+	intelMqCmd.Flags().StringP("intelmq-feed-name", "n", "Passive DNS", "IntelMQ feed.name")
+	intelMqCmd.Flags().StringP("intelmq-feed-provider", "p", "balboa", "IntelMQ feed.provider")
 	intelMqCmd.Flags().StringP("host", "H", "localhost:4242", "listen host and port of the backend")
 }
