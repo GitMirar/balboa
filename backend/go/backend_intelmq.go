@@ -97,8 +97,8 @@ func (i *IntelMqHandler) tcpWorker() {
 			intelMqMessage := &IntelMqInput{
 				ClassificationTaxonomy: "other",
 				ClassificationType:     "unknown",
-				FeedName:               "Passive DNS",
-				FeedProvider:           "SIE",
+				FeedName:               i.intelMqFeedName,
+				FeedProvider:           i.intelMqFeedProvider,
 				TimeObservation:        time.Now().Format(time.RFC3339),
 				TimeSource:             o.TimestampStart.Format(time.RFC3339),
 				SourceFqdn:             o.Rrname,
