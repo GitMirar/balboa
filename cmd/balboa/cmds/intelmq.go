@@ -30,6 +30,10 @@ var intelMqCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(err)
 		}
+		selectorFile, err := cmd.Flags().GetString("selector-file")
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		host, err := cmd.Flags().GetString("host")
 		if err != nil {
@@ -37,7 +41,7 @@ var intelMqCmd = &cobra.Command{
 		}
 		log.Printf("running IntelMQ relay backend and relaying events to %s", intelMqCollector)
 
-		db.Serve(host, db.NewIntelMqHandler(intelMqCollector, intelMqFeedName, intelMqFeedProvider))
+		db.Serve(host, db.NewIntelMqHandler(intelMqCollector, intelMqFeedName, intelMqFeedProvider, selectorFile))
 	},
 }
 
@@ -48,4 +52,5 @@ func init() {
 	intelMqCmd.Flags().StringP("intelmq-feed-name", "n", "Passive DNS", "IntelMQ feed.name")
 	intelMqCmd.Flags().StringP("intelmq-feed-provider", "p", "balboa", "IntelMQ feed.provider")
 	intelMqCmd.Flags().StringP("host", "H", "localhost:4242", "listen host and port of the backend")
+	intelMqCmd.Flags().StringP("selector-file", "S", "", "a file containing newline separated regular expressions")
 }

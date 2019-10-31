@@ -5,7 +5,10 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
+	"io/ioutil"
 	"net"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/DCSO/balboa/db"
@@ -35,22 +38,58 @@ type IntelMqHandler struct {
 	intelMqCollector    string // hostname:port of IntelMQ TCP collector
 	intelMqFeedName     string // feed name in IntelMQ after JSON parser
 	intelMqFeedProvider string // feed provider in IntelMQ after JSON parser
+	selectorFile        string // file containing newline separated regular expressions
 	stopChan            chan bool
 	stoppedChan         chan bool
 	observations        chan *observation.InputObservation
 	conn                net.Conn
 	connWriter          *bufio.Writer
+	selectors           []*regexp.Regexp
 }
 
-func NewIntelMqHandler(intelMqCollector string, intelMqFeedName string, intelMqFeedProvider string) *IntelMqHandler {
+func NewIntelMqHandler(intelMqCollector string, intelMqFeedName string, intelMqFeedProvider string, selectorFile string) *IntelMqHandler {
 	i := &IntelMqHandler{intelMqCollector: intelMqCollector,
 		intelMqFeedName:     intelMqFeedName,
-		intelMqFeedProvider: intelMqFeedProvider}
+		intelMqFeedProvider: intelMqFeedProvider,
+		selectorFile:        selectorFile,
+	}
 	i.stopChan = make(chan bool)
 	i.stoppedChan = make(chan bool)
 	i.observations = make(chan *observation.InputObservation, intelMqObservationsBufferSize)
+	if i.selectorFile != "" {
+		i.loadSelectors()
+	}
 	go i.tcpWorker()
 	return i
+}
+
+func (i *IntelMqHandler) loadSelectors() {
+	selectorsRaw, err := ioutil.ReadFile(i.selectorFile)
+	if err != nil {
+		log.Fatalf("could not read selector file due to %v", err)
+	}
+	for _, s := range strings.Split(string(selectorsRaw), "\n") {
+		if s == "" {
+			continue
+		}
+		r := regexp.MustCompile(s)
+		if r == nil {
+			log.Fatalf("regexp %s does not compile", s)
+		}
+		i.selectors = append(i.selectors, r)
+	}
+}
+
+func (i *IntelMqHandler) matchSelectors(domain string) (match bool) {
+	if i.selectors == nil {
+		return true
+	}
+	for _, s := range i.selectors {
+		if s.Match([]byte(domain)) {
+			return true
+		}
+	}
+	return false
 }
 
 // connect or reconnect TCP connection to IntelMQ TCP collector
@@ -89,6 +128,10 @@ func (i *IntelMqHandler) tcpWorker() {
 		select {
 
 		case o := <-i.observations:
+			if !i.matchSelectors(o.Rrname) {
+				continue
+			}
+
 			jsonObs, err := json.Marshal(o)
 			if err != nil {
 				log.Warnf("could not marshal observation due to %v", err)
